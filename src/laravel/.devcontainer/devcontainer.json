@@ -2,7 +2,10 @@
     "name": "Laravel",
     "build": {
         "dockerfile": "Dockerfile",
-        "context": "."
+        "context": ".",
+        "args": {
+            "VARIANT": "${localEnv:PHP_VERSION:8.3-cli}"
+        }
     },
     "features": {
         "ghcr.io/devcontainers/features/common-utils:2": {},
