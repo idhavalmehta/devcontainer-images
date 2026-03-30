@@ -1,4 +1,4 @@
-name: Build and Push Devcontainer Images
+name: laravel
 
 on:
   push:
