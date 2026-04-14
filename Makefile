@@ -1,11 +1,22 @@
-build-laravel laravel-build:
-	devcontainer build --workspace-folder src/laravel --image-name php-laravel-devcontainer:latest
+## Auth
+login:
+	./scripts/login.sh
 
-build-laravel-no-cache laravel-build-no-cache:
-	devcontainer build --workspace-folder src/laravel --image-name php-laravel-devcontainer:latest --no-cache
+## Laravel
+build-laravel:
+	./scripts/laravel.sh build $(PHP_VERSION) $(PLATFORM)
 
-up-laravel laravel-up:
-	devcontainer up --workspace-folder src/laravel --remove-existing-container
+build-laravel-no-cache:
+	./scripts/laravel.sh build-no-cache $(PHP_VERSION) $(PLATFORM)
 
-exec-laravel laravel-exec:
-	devcontainer exec --workspace-folder src/laravel bash
+push-laravel:
+	./scripts/laravel.sh push $(PHP_VERSION) $(PLATFORM)
+
+push-all-laravel:
+	./scripts/laravel.sh push-all
+
+up-laravel:
+	./scripts/laravel.sh up $(PHP_VERSION)
+
+exec-laravel:
+	./scripts/laravel.sh exec
