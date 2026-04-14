@@ -3,14 +3,19 @@
 	"features": {
 		"ghcr.io/devcontainers/features/docker-in-docker:2": {}
 	},
-	"postCreateCommand": "npm install -g @devcontainers/cli",
 	"customizations": {
 		"vscode": {
 			"extensions": [
 				"mads-hartmann.bash-ide-vscode",
 				"dbaeumer.vscode-eslint",
-				"EditorConfig.EditorConfig"
+				"EditorConfig.EditorConfig",
+				"Anthropic.claude-code"
 			]
 		}
-	}
+	},
+	"mounts": [
+		"source=${localEnv:HOME}/.claude-devcontainer/.claude,target=/home/vscode/.claude,type=bind",
+		"source=${localEnv:HOME}/.claude-devcontainer/.claude.json,target=/home/vscode/.claude.json,type=bind"
+	],
+	"postCreateCommand": "./.devcontainer/scripts/post-create.sh"
 }
