@@ -7,6 +7,13 @@ RUN install-php-extensions \
     @composer \
     pcntl \
     xdebug \
+    intl \
+    zip \
+    dom \
+    fileinfo \
+    filter \
+    libxml \
+    xmlreader \
     pdo_mysql \
     mysqli \
     pdo_pgsql \
