@@ -1,7 +1,8 @@
 {
 	"image": "mcr.microsoft.com/devcontainers/javascript-node:24-bookworm",
 	"features": {
-		"ghcr.io/devcontainers/features/docker-in-docker:2": {}
+		"ghcr.io/devcontainers/features/docker-in-docker:2": {},
+		"ghcr.io/anthropics/devcontainer-features/claude-code:1": {}
 	},
 	"customizations": {
 		"vscode": {
@@ -14,8 +15,10 @@
 		}
 	},
 	"mounts": [
-		"source=${localEnv:HOME}/.claude-devcontainer/.claude,target=/home/vscode/.claude,type=bind",
-		"source=${localEnv:HOME}/.claude-devcontainer/.claude.json,target=/home/vscode/.claude.json,type=bind"
+		"source=${localEnv:HOME}/.devcontainer/.docker,target=/home/node/.docker,type=bind",
+		"source=${localEnv:HOME}/.devcontainer/.agents,target=/home/node/.agents,type=bind",
+		"source=${localEnv:HOME}/.devcontainer/.claude,target=/home/node/.claude,type=bind",
+		"source=${localEnv:HOME}/.devcontainer/.claude.json,target=/home/node/.claude.json,type=bind"
 	],
-	"postCreateCommand": "./.devcontainer/scripts/post-create.sh"
+	"postCreateCommand": "npm install -g @devcontainers/cli"
 }
