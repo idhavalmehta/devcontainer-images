@@ -33,20 +33,16 @@ case "$1" in
   push)
     docker_login
     version="${2:-$DEFAULT_VERSION}"
-    platform="${3:-}"
+    platform="${3:-$DEFAULT_PLATFORM}"
     echo "Pushing php-${version}..."
-    if [ -n "$platform" ]; then
-      PHP_VERSION="$version" devcontainer build --workspace-folder ${ROOT_DIR}/src/laravel --image-name "${IMAGE_NAME}:php-${version}" --platform "$platform" --push
-    else
-      PHP_VERSION="$version" devcontainer build --workspace-folder ${ROOT_DIR}/src/laravel --image-name "${IMAGE_NAME}:php-${version}" --push
-    fi
+    PHP_VERSION="$version" devcontainer build --workspace-folder ${ROOT_DIR}/src/laravel --image-name "${IMAGE_NAME}:php-${version}" --image-name "${IMAGE_NAME}:latest" --platform "$platform" --push
     ;;
 
   push-all)
     docker_login
     for version in "${PHP_VERSIONS[@]}"; do
       echo "Pushing php-${version}..."
-      PHP_VERSION="$version" devcontainer build --workspace-folder ${ROOT_DIR}/src/laravel --image-name "${IMAGE_NAME}:php-${version}" --platform "$PLATFORMS" --push
+      PHP_VERSION="$version" devcontainer build --workspace-folder ${ROOT_DIR}/src/laravel --image-name "${IMAGE_NAME}:php-${version}" --image-name "${IMAGE_NAME}:latest" --platform "$PLATFORMS" --push
     done
     ;;
 
