@@ -18,5 +18,11 @@ push-all-laravel:
 up-laravel:
 	./scripts/laravel.sh up $(PHP_VERSION)
 
+stop-laravel:
+	./scripts/laravel.sh stop
+
+rm-laravel:
+	./scripts/laravel.sh rm
+
 exec-laravel:
 	./scripts/laravel.sh exec

@@ -55,6 +55,14 @@ case "$1" in
     PHP_VERSION="$version" devcontainer up --workspace-folder ${ROOT_DIR}/src/laravel --remove-existing-container
     ;;
 
+  stop)
+    docker stop laravel-devcontainer
+    ;;
+
+  rm)
+    docker rm -f laravel-devcontainer
+    ;;
+
   exec)
     devcontainer exec --workspace-folder ${ROOT_DIR}/src/laravel bash
     ;;
