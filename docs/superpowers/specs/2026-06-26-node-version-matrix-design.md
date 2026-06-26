@@ -13,32 +13,32 @@ Additionally, the existing tag format (`php-8.3-cli`) doesn't accommodate a Node
 ## Goals
 
 - Add Node version as a first-class matrix dimension alongside PHP version
-- Short, readable tags — no `latest` tag
+- Short, readable tags derived automatically from version data — no `latest` tag, no manually maintained tag strings
 - Each project pins one specific combination via its `devcontainer.json` image reference
 - Adding a new PHP or Node version requires only editing `matrix.json`
 
 ## Tag Format
 
-CLI is the default variant — omit the variant suffix. Include `apache` for the Apache variant:
+Tags are derived from `version` + `variant` + `node`. CLI is the default variant — omit the variant suffix. Include `apache` for the Apache variant:
 
-| Combination | Tag |
+| Combination | Derived Tag |
 |---|---|
 | PHP 8.3 CLI + Node 22 | `8.3-22` |
 | PHP 8.3 CLI + Node 24 | `8.3-24` |
 | PHP 8.3 Apache + Node 22 | `8.3-apache-22` |
 | PHP 8.3 Apache + Node 24 | `8.3-apache-24` |
 
-No `latest` tag. Each project references an exact combination.
+Derivation rule: `{version}-{node}` for CLI, `{version}-{variant}-{node}` for everything else. No manually maintained tag field in `matrix.json`.
 
 ## matrix.json Changes
 
-`php` becomes an array of objects (to carry `version`, `variant`, and the pre-computed `tag` field that avoids conditional logic in the workflow). `node` is a new top-level array:
+`php` becomes an array of objects with `version` and `variant` only — no `tag` field. `node` is a new top-level array:
 
 ```json
 {
   "php": [
-    { "version": "8.3", "variant": "cli",    "tag": "8.3" },
-    { "version": "8.3", "variant": "apache", "tag": "8.3-apache" }
+    { "version": "8.3", "variant": "cli" },
+    { "version": "8.3", "variant": "apache" }
   ],
   "node": ["22", "24"],
   "config": [
@@ -64,6 +64,20 @@ Default of `22` applies for local builds where `NODE_VERSION` is not set.
 
 ## Workflow Changes
 
+### Tag derivation
+
+A step in the build job derives the tag from matrix values before the `devcontainers/ci` step:
+
+```bash
+if [ "${{ matrix.php.variant }}" = "cli" ]; then
+  echo "tag=${{ matrix.php.version }}-${{ matrix.node }}" >> $GITHUB_OUTPUT
+else
+  echo "tag=${{ matrix.php.version }}-${{ matrix.php.variant }}-${{ matrix.node }}" >> $GITHUB_OUTPUT
+fi
+```
+
+All subsequent references use `steps.derive-tag.outputs.tag`.
+
 ### setup job
 
 New outputs replacing `php_versions`:
@@ -80,20 +94,26 @@ env:
   NODE_VERSION: ${{ matrix.node }}
 ```
 
-Image tag uses the pre-computed `tag` field:
+Image tag for intermediate push:
 ```
-imageTag: ${{ matrix.php.tag }}-${{ matrix.node }}-${{ matrix.config.arch }}
+imageTag: ${{ steps.derive-tag.outputs.tag }}-${{ matrix.config.arch }}
 ```
 
 ### merge job
 
-Iterates over `php_configs × nodes` to assemble manifests:
+Iterates over `php_configs × nodes`, deriving the final tag with the same rule in bash:
 
 ```bash
 for php in $(echo "$PHP_CONFIGS" | jq -c '.[]'); do
-  tag=$(echo "$php" | jq -r '.tag')
+  version=$(echo "$php" | jq -r '.version')
+  variant=$(echo "$php" | jq -r '.variant')
   for node in $(echo "$NODES" | jq -r '.[]'); do
-    # imagetools create from all arches for this php+node combo
+    if [ "$variant" = "cli" ]; then
+      tag="${version}-${node}"
+    else
+      tag="${version}-${variant}-${node}"
+    fi
+    # imagetools create from all arches for this combo
     # delete intermediate arch-specific tags
   done
 done
