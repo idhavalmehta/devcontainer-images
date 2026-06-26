@@ -21,7 +21,7 @@ jobs:
 
       - id: read
         run: |
-          matrix=$(cat src/laravel/matrix.json)
+          matrix=$(jq -c '.' src/laravel/matrix.json)
           echo "matrix=$matrix" >> $GITHUB_OUTPUT
           echo "php_versions=$(echo "$matrix" | jq -c '.php')" >> $GITHUB_OUTPUT
           echo "arches=$(echo "$matrix" | jq -c '[.config[].arch]')" >> $GITHUB_OUTPUT
