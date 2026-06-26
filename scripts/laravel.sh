@@ -3,8 +3,7 @@ set -e
 
 source "$(cd "$(dirname "$0")" && pwd)/common.sh"
 
-IMAGE_NAME="${DOCKERHUB_USERNAME}/laravel-devcontainer"
-PHP_VERSIONS=("8.3-cli" "8.3-apache")
+IMAGE_NAME="laravel-devcontainer"
 DEFAULT_VERSION="8.3-cli"
 
 case "$1" in
@@ -30,22 +29,6 @@ case "$1" in
     fi
     ;;
 
-  push)
-    docker_login
-    version="${2:-$DEFAULT_VERSION}"
-    platform="${3:-$DEFAULT_PLATFORM}"
-    echo "Pushing php-${version}..."
-    PHP_VERSION="$version" devcontainer build --workspace-folder ${ROOT_DIR}/src/laravel --image-name "${IMAGE_NAME}:php-${version}" --image-name "${IMAGE_NAME}:latest" --platform "$platform" --push
-    ;;
-
-  push-all)
-    docker_login
-    for version in "${PHP_VERSIONS[@]}"; do
-      echo "Pushing php-${version}..."
-      PHP_VERSION="$version" devcontainer build --workspace-folder ${ROOT_DIR}/src/laravel --image-name "${IMAGE_NAME}:php-${version}" --image-name "${IMAGE_NAME}:latest" --platform "$PLATFORMS" --push
-    done
-    ;;
-
   up)
     version="${2:-$DEFAULT_VERSION}"
     PHP_VERSION="$version" devcontainer up --workspace-folder ${ROOT_DIR}/src/laravel --remove-existing-container
@@ -64,7 +47,7 @@ case "$1" in
     ;;
 
   *)
-    echo "Usage: $0 {build|build-no-cache|push|push-all|up|exec} [php-version] [platform]"
+    echo "Usage: $0 {build|build-no-cache|up|exec|stop|rm} [php-version] [platform]"
     exit 1
     ;;
 esac
