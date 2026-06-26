@@ -78,21 +78,6 @@ jobs:
               $sources
           done
 
-      - name: Tag latest
-        env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          PHP_VERSIONS: ${{ needs.setup.outputs.php_versions }}
-          ARCHES: ${{ needs.setup.outputs.arches }}
-        run: |
-          first_version=$(echo "$PHP_VERSIONS" | jq -r '.[0]')
-          sources=""
-          for arch in $(echo "$ARCHES" | jq -r '.[]'); do
-            sources="$sources ${DOCKERHUB_USERNAME}/laravel-devcontainer:php-${first_version}-${arch}"
-          done
-          docker buildx imagetools create \
-            -t ${DOCKERHUB_USERNAME}/laravel-devcontainer:latest \
-            $sources
-
       - name: Delete intermediate tags
         env:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
