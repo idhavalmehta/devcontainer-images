@@ -10,10 +10,27 @@ Images were being built and pushed to Docker Hub manually via Makefile targets. 
 ## Goals
 
 - CI builds and pushes all images automatically on merge to `main`
-- Matrix covers multiple PHP versions (`8.3-cli`, `8.3-apache`) and platforms (`linux/amd64`, `linux/arm64`)
+- Matrix covers multiple PHP versions and platforms, defined in a version-controlled config file
 - Platform builds run on native GitHub-hosted runners (no QEMU emulation)
+- Adding a new PHP version requires only editing `matrix.json` — no workflow changes
 - Local workflow retained for building and running images during development — no local push
 - Intermediate platform-specific tags cleaned up after multi-arch manifests are assembled
+
+## Config File
+
+**`src/laravel/matrix.json`** — single place to add/remove PHP versions or platforms:
+
+```json
+{
+  "php": ["8.3-cli", "8.3-apache"],
+  "config": [
+    { "platform": "linux/amd64", "runner": "ubuntu-latest",    "arch": "amd64" },
+    { "platform": "linux/arm64", "runner": "ubuntu-24.04-arm", "arch": "arm64" }
+  ]
+}
+```
+
+`php` is what maintainers update regularly. `config` changes rarely and must include the runner name alongside the platform since those are coupled.
 
 ## Workflow Structure
 
@@ -24,22 +41,30 @@ File: `.github/workflows/laravel.yaml`
 - `push` to `main` matching paths `src/laravel/**` or `.github/workflows/laravel.yaml`
 - `workflow_dispatch`
 
-### Job 1: `build` (matrix)
+### Job 1: `setup`
 
-Matrix produces 4 jobs (2 PHP versions × 2 platforms):
+Runs on `ubuntu-latest`. Reads `src/laravel/matrix.json` and sets two outputs:
 
+- `matrix` — the full JSON object from the file, passed directly to the build job matrix
+- `php_versions` — just the `php` array as a JSON string, used by the merge job
+
+GitHub Actions computes the cross-product natively when the matrix object has multiple keys, so no cartesian product scripting is needed — the setup job is a single `cat` + output set.
+
+### Job 2: `build` (matrix)
+
+`needs: setup`. Uses GitHub's native cross-product:
+
+```yaml
+strategy:
+  matrix: ${{ fromJSON(needs.setup.outputs.matrix) }}
 ```
-matrix:
-  php: ["8.3-cli", "8.3-apache"]
-  config:
-    - { platform: linux/amd64, runner: ubuntu-latest,    arch: amd64 }
-    - { platform: linux/arm64, runner: ubuntu-24.04-arm, arch: arm64 }
-```
+
+This generates one job per `php × config` combination (e.g. 4 jobs for 2 versions × 2 platforms). Runs on `${{ matrix.config.runner }}`.
 
 Each job:
 1. `actions/checkout@v4`
 2. `docker/login-action@v4` (DOCKERHUB_USERNAME + DOCKERHUB_TOKEN secrets)
-3. `devcontainers/ci@v0.3` — builds and pushes an intermediate platform-specific tag:
+3. `devcontainers/ci@v0.3`:
    - `imageName`: `${{ secrets.DOCKERHUB_USERNAME }}/laravel-devcontainer`
    - `imageTag`: `php-${{ matrix.php }}-${{ matrix.config.arch }}`
    - `subFolder`: `src/laravel`
@@ -47,22 +72,17 @@ Each job:
    - `push`: `always`
    - env `PHP_VERSION`: `${{ matrix.php }}`
 
-### Job 2: `merge`
+### Job 3: `merge`
 
-`needs: build`, runs on `ubuntu-latest`.
+`needs: [setup, build]`, runs on `ubuntu-latest`.
 
 Steps:
 1. `docker/login-action@v4`
 2. `docker/setup-buildx-action@v3`
-3. For each PHP version, assemble multi-arch manifest:
-   ```
-   docker buildx imagetools create \
-     -t <user>/laravel-devcontainer:php-8.3-cli \
-     <user>/laravel-devcontainer:php-8.3-cli-amd64 \
-     <user>/laravel-devcontainer:php-8.3-cli-arm64
-   ```
-4. Tag `latest` from the same sources as `php-8.3-cli`
-5. Delete intermediate tags via Docker Hub API (`DELETE /v2/repositories/<user>/<repo>/tags/<tag>`)
+3. Loop over `fromJSON(needs.setup.outputs.php_versions)`, for each version:
+   - `docker buildx imagetools create -t <user>/laravel-devcontainer:php-<version> <user>/laravel-devcontainer:php-<version>-amd64 <user>/laravel-devcontainer:php-<version>-arm64`
+4. Tag `latest` pointing to the same sources as `php-8.3-cli` (first entry in `php` array)
+5. Delete intermediate `*-amd64` / `*-arm64` tags via Docker Hub API
 
 ## Local Build Setup
 
@@ -105,4 +125,4 @@ Both required in GitHub repo Settings → Secrets:
 - `DOCKERHUB_USERNAME`
 - `DOCKERHUB_TOKEN`
 
-No `.env` file needed locally for builds (only needed if manually running push, which is removed).
+No `.env` file needed locally (credentials only used by CI).
