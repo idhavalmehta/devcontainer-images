@@ -19,16 +19,16 @@ Additionally, the existing tag format (`php-8.3-cli`) doesn't accommodate a Node
 
 ## Tag Format
 
-Tags are derived from `version` + `variant` + `node`. CLI is the default variant — omit the variant suffix. Include `apache` for the Apache variant:
+Tags are derived from `version` + `variant` + `node`. All variants are always included — no special casing:
 
 | Combination | Derived Tag |
 |---|---|
-| PHP 8.3 CLI + Node 22 | `8.3-22` |
-| PHP 8.3 CLI + Node 24 | `8.3-24` |
+| PHP 8.3 CLI + Node 22 | `8.3-cli-22` |
+| PHP 8.3 CLI + Node 24 | `8.3-cli-24` |
 | PHP 8.3 Apache + Node 22 | `8.3-apache-22` |
 | PHP 8.3 Apache + Node 24 | `8.3-apache-24` |
 
-Derivation rule: `{version}-{node}` for CLI, `{version}-{variant}-{node}` for everything else. No manually maintained tag field in `matrix.json`.
+Derivation rule: `{version}-{variant}-{node}` for all combinations. No conditional logic, no manually maintained tag field in `matrix.json`.
 
 ## matrix.json Changes
 
@@ -66,17 +66,13 @@ Default of `22` applies for local builds where `NODE_VERSION` is not set.
 
 ### Tag derivation
 
-A step in the build job derives the tag from matrix values before the `devcontainers/ci` step:
+Tag is `{version}-{variant}-{node}` with no special casing. In the build job, used directly as a GitHub Actions expression:
 
-```bash
-if [ "${{ matrix.php.variant }}" = "cli" ]; then
-  echo "tag=${{ matrix.php.version }}-${{ matrix.node }}" >> $GITHUB_OUTPUT
-else
-  echo "tag=${{ matrix.php.version }}-${{ matrix.php.variant }}-${{ matrix.node }}" >> $GITHUB_OUTPUT
-fi
+```
+${{ matrix.php.version }}-${{ matrix.php.variant }}-${{ matrix.node }}
 ```
 
-All subsequent references use `steps.derive-tag.outputs.tag`.
+No extra step needed.
 
 ### setup job
 
@@ -96,7 +92,7 @@ env:
 
 Image tag for intermediate push:
 ```
-imageTag: ${{ steps.derive-tag.outputs.tag }}-${{ matrix.config.arch }}
+imageTag: ${{ matrix.php.version }}-${{ matrix.php.variant }}-${{ matrix.node }}-${{ matrix.config.arch }}
 ```
 
 ### merge job
@@ -108,11 +104,7 @@ for php in $(echo "$PHP_CONFIGS" | jq -c '.[]'); do
   version=$(echo "$php" | jq -r '.version')
   variant=$(echo "$php" | jq -r '.variant')
   for node in $(echo "$NODES" | jq -r '.[]'); do
-    if [ "$variant" = "cli" ]; then
-      tag="${version}-${node}"
-    else
-      tag="${version}-${variant}-${node}"
-    fi
+    tag="${version}-${variant}-${node}"
     # imagetools create from all arches for this combo
     # delete intermediate arch-specific tags
   done
