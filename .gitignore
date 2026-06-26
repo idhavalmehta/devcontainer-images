@@ -1,3 +1,4 @@
 .env
 src/laravel/*
 !src/laravel/.devcontainer
+!src/laravel/matrix.json
