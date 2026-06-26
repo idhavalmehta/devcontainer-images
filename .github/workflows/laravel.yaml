@@ -1,0 +1,114 @@
+name: laravel
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "src/laravel/**"
+      - ".github/workflows/laravel.yaml"
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.read.outputs.matrix }}
+      php_versions: ${{ steps.read.outputs.php_versions }}
+      arches: ${{ steps.read.outputs.arches }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: read
+        run: |
+          matrix=$(cat src/laravel/matrix.json)
+          echo "matrix=$matrix" >> $GITHUB_OUTPUT
+          echo "php_versions=$(echo "$matrix" | jq -c '.php')" >> $GITHUB_OUTPUT
+          echo "arches=$(echo "$matrix" | jq -c '[.config[].arch]')" >> $GITHUB_OUTPUT
+
+  build:
+    needs: setup
+    runs-on: ${{ matrix.config.runner }}
+    strategy:
+      matrix: ${{ fromJSON(needs.setup.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - uses: devcontainers/ci@v0.3
+        env:
+          PHP_VERSION: ${{ matrix.php }}
+        with:
+          imageName: ${{ secrets.DOCKERHUB_USERNAME }}/laravel-devcontainer
+          imageTag: php-${{ matrix.php }}-${{ matrix.config.arch }}
+          subFolder: src/laravel
+          platform: ${{ matrix.config.platform }}
+          push: always
+
+  merge:
+    needs: [setup, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Create multi-arch manifests
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          PHP_VERSIONS: ${{ needs.setup.outputs.php_versions }}
+          ARCHES: ${{ needs.setup.outputs.arches }}
+        run: |
+          for version in $(echo "$PHP_VERSIONS" | jq -r '.[]'); do
+            sources=""
+            for arch in $(echo "$ARCHES" | jq -r '.[]'); do
+              sources="$sources ${DOCKERHUB_USERNAME}/laravel-devcontainer:php-${version}-${arch}"
+            done
+            docker buildx imagetools create \
+              -t ${DOCKERHUB_USERNAME}/laravel-devcontainer:php-${version} \
+              $sources
+          done
+
+      - name: Tag latest
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          PHP_VERSIONS: ${{ needs.setup.outputs.php_versions }}
+          ARCHES: ${{ needs.setup.outputs.arches }}
+        run: |
+          first_version=$(echo "$PHP_VERSIONS" | jq -r '.[0]')
+          sources=""
+          for arch in $(echo "$ARCHES" | jq -r '.[]'); do
+            sources="$sources ${DOCKERHUB_USERNAME}/laravel-devcontainer:php-${first_version}-${arch}"
+          done
+          docker buildx imagetools create \
+            -t ${DOCKERHUB_USERNAME}/laravel-devcontainer:latest \
+            $sources
+
+      - name: Delete intermediate tags
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          PHP_VERSIONS: ${{ needs.setup.outputs.php_versions }}
+          ARCHES: ${{ needs.setup.outputs.arches }}
+        run: |
+          token=$(curl -s -X POST "https://hub.docker.com/v2/users/login" \
+            -H "Content-Type: application/json" \
+            -d "{\"username\":\"${DOCKERHUB_USERNAME}\",\"password\":\"${DOCKERHUB_TOKEN}\"}" \
+            | jq -r '.token')
+
+          for version in $(echo "$PHP_VERSIONS" | jq -r '.[]'); do
+            for arch in $(echo "$ARCHES" | jq -r '.[]'); do
+              curl -s -X DELETE \
+                -H "Authorization: Bearer ${token}" \
+                "https://hub.docker.com/v2/repositories/${DOCKERHUB_USERNAME}/laravel-devcontainer/tags/php-${version}-${arch}/"
+            done
+          done
