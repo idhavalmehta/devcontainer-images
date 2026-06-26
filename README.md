@@ -1,6 +1,6 @@
 # devcontainer-images
 
-My personal collection of [VS Code devcontainer](https://containers.dev/) images, configured the way I actually use them. The official images for these stacks often lack tools I need day-to-day (like Xdebug for Laravel), so I maintain my own versions and publish them to Docker Hub.
+My personal collection of [VS Code devcontainer](https://containers.dev/) images, configured the way I actually use them. The official images for these stacks often lack tools I need day-to-day (like Xdebug for Laravel), so I maintain my own versions and publish them to Docker Hub via GitHub Actions.
 
 ## Images
 
@@ -20,11 +20,11 @@ The official Laravel devcontainer doesn't include Xdebug, making step-through de
 - `pdo_mysql`, `mysqli` — MySQL support
 - `pdo_pgsql`, `pgsql` — PostgreSQL support
 - `pdo_sqlsrv`, `sqlsrv` — SQL Server support
-- `pcntl`, `intl`, `zip`, `dom`, `fileinfo`, `filter`, `libxml`, `xmlreader`, `xmlreader`
+- `pcntl`, `intl`, `zip`, `dom`, `fileinfo`, `filter`, `libxml`, `xmlreader`
 - Composer + Laravel installer (`laravel` CLI)
 - Devcontainer features: `common-utils`, `git`, `node`
 
-**Platform:** `linux/arm64`
+**Platforms:** `linux/amd64`, `linux/arm64`
 
 ## Using the images
 
@@ -37,29 +37,27 @@ Reference an image in your project's `.devcontainer/devcontainer.json`:
 }
 ```
 
-## Building and publishing
+## Publishing
 
-Open this repo in VS Code and reopen in the devcontainer — it includes all the tools needed (Docker, devcontainer CLI, etc.).
+Images are built and pushed to Docker Hub automatically by GitHub Actions on every push to `main` that touches `src/laravel/**`. The workflow builds all PHP versions and platforms in parallel using native runners, then assembles multi-arch manifests.
 
-### Setup
+To add a new PHP version or platform, edit `src/laravel/matrix.json` and push.
 
-Create a `.env` file in the repo root (not committed):
+## Local development
 
-```bash
-DOCKERHUB_USERNAME=your-username
-DOCKERHUB_TOKEN=your-access-token
-```
-
-### Commands
+Open this repo in VS Code and reopen in the devcontainer — it includes Docker-in-Docker and the devcontainer CLI. Then use:
 
 | Command | Description |
 |---|---|
-| `make login` | Authenticate with Docker Hub |
 | `make build-laravel PHP_VERSION=8.3-cli` | Build the image locally |
 | `make build-laravel-no-cache PHP_VERSION=8.3-cli` | Build without Docker layer cache |
-| `make push-laravel PHP_VERSION=8.3-cli` | Build and push a single tag to Docker Hub |
-| `make push-all-laravel` | Build and push all PHP version tags |
 | `make up-laravel PHP_VERSION=8.3-cli` | Start a container locally |
 | `make exec-laravel` | Open a shell in the running container |
 | `make stop-laravel` | Stop the running container |
 | `make rm-laravel` | Remove the container |
+
+Alternatively, install the devcontainer CLI globally on any machine with Docker:
+
+```bash
+npm install -g @devcontainers/cli
+```
